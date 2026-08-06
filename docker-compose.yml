@@ -68,7 +68,7 @@ services:
       minio:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -109,8 +109,6 @@ services:
     networks:
       - backend_network
       - frontend_network
-    profiles:
-      - tools
     depends_on:
       elasticsearch:
         condition: service_healthy
@@ -127,8 +125,6 @@ services:
     command: ["sh", "/scripts/install-sample-data.sh"]
     networks:
       - backend_network
-    profiles:
-      - init
     depends_on:
       kibana:
         condition: service_healthy
@@ -137,12 +133,11 @@ services:
     image: minio/mc:RELEASE.2024-07-31T15-58-33Z
     volumes:
       - ./docker/minio-init:/scripts
-    command: ["sh", "/scripts/create-bucket.sh"]
+    entrypoint: ["/bin/sh"]
+    command: ["/scripts/create-bucket.sh"]
     env_file: .env
     networks:
       - backend_network
-    profiles:
-      - init
     depends_on:
       minio:
         condition: service_healthy

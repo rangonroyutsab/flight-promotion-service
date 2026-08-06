@@ -86,3 +86,25 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 REST_FRAMEWORK = {
     'EXCEPTION_HANDLER': 'promotions.api.exceptions.custom_exception_handler'
 }
+
+# Elasticsearch Settings
+ELASTICSEARCH_URL = os.environ.get('ELASTICSEARCH_URL', 'http://elasticsearch:9200')
+ELASTICSEARCH_USERNAME = os.environ.get('ELASTICSEARCH_USERNAME', 'elastic')
+ELASTICSEARCH_PASSWORD = os.environ.get('ELASTICSEARCH_PASSWORD', '')
+ELASTICSEARCH_INDEX = os.environ.get('ELASTICSEARCH_INDEX', 'kibana_sample_data_flights')
+
+# MinIO Settings
+MINIO_ENDPOINT = os.environ.get('MINIO_ENDPOINT', 'minio:9000')
+MINIO_ACCESS_KEY = os.environ.get('MINIO_ACCESS_KEY', '')
+MINIO_SECRET_KEY = os.environ.get('MINIO_SECRET_KEY', '')
+MINIO_SECURE = os.environ.get('MINIO_SECURE', 'false').lower() == 'true'
+MINIO_BUCKET = os.environ.get('MINIO_BUCKET', 'flight-promotions')
+
+# AI Settings
+AI_PROVIDER = os.environ.get('AI_PROVIDER', 'mock')
+AI_MODEL = os.environ.get('AI_MODEL', 'mock-model')
+AI_API_KEY = os.environ.get('AI_API_KEY', '')
+GEMINI_API_URL = os.environ.get('GEMINI_API_URL', '')
+DEFAULT_TIMEOUT_SECONDS = int(os.environ.get('DEFAULT_TIMEOUT_SECONDS', 10))
+AI_MAX_RETRIES = int(os.environ.get('AI_MAX_RETRIES', 3))
+
