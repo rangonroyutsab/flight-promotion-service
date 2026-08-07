@@ -10,9 +10,6 @@ logger = logging.getLogger(__name__)
 
 class ElasticsearchClient:
     def __init__(self):
-        # NOTE: xpack.security.enabled=false is set in docker-compose.yml,
-        # so auth is effectively a no-op. Kept for forward compatibility if
-        # security is later enabled.
         self.client = Elasticsearch(
             settings.ELASTICSEARCH_URL,
             basic_auth=(settings.ELASTICSEARCH_USERNAME, settings.ELASTICSEARCH_PASSWORD)
@@ -26,7 +23,7 @@ class ElasticsearchClient:
     )
     def search_flights(self, start_utc: str, end_utc: str):
         """
-        Query Elasticsearch for eligible flights based on PLAN.md Section 11.
+        Query Elasticsearch for eligible flights.
         """
         query = {
             "size": 5,
