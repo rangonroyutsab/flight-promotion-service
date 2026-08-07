@@ -15,3 +15,7 @@ services:
     ports:
       - "9000:9000"
       - "9001:9001"
+
+  postgres:
+    ports:
+      - "5432:5432"

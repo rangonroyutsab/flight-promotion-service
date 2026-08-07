@@ -44,3 +44,4 @@ class Command(BaseCommand):
         except (KeyboardInterrupt, SystemExit):
             logger.info("APScheduler stopping gracefully.")
             scheduler.shutdown()
+            raise

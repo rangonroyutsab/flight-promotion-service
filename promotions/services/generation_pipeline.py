@@ -26,7 +26,6 @@ class GenerationPipeline:
     def get_time_boundaries(self, now_local: datetime, is_scheduled: bool):
         """Encapsulate time boundary calculations."""
         start_of_day = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
-        # Always use timedelta — handles all month-end edge cases cleanly
         end_of_day = start_of_day + timedelta(days=1)
 
         effective_start = start_of_day if is_scheduled else max(now_local, start_of_day)
@@ -78,7 +77,7 @@ class GenerationPipeline:
                 })
                 logger.info("Promotion %s generated successfully.", promo_uuid)
             except Exception as e:
-                logger.error("Failed to generate promotion for flight %s: %s", flight_id, e, exc_info=True)
+                logger.exception("Failed to generate promotion for flight %s: %s", flight_id, e)
                 processing_results.append({
                     "promotion_id": promo_uuid,
                     "canonical_key": None,
