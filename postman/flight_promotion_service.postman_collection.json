@@ -1,0 +1,106 @@
+{
+	"info": {
+		"name": "Flight Promotion Service",
+		"description": "API endpoints for the Flight Promotion Service",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Health Check",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/health",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"health"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get Latest Promotions",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/promotions/",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"promotions",
+						""
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get Promotions by Date",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/promotions/?date=2026-08-07",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"promotions",
+						""
+					],
+					"query": [
+						{
+							"key": "date",
+							"value": "2026-08-07",
+							"description": "Format YYYY-MM-DD"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get Promotion Detail",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/promotions/:id",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"promotions",
+						":id"
+					],
+					"variable": [
+						{
+							"key": "id",
+							"value": "0b5172a2-df37-516c-b5ed-ca6165ea2f4e",
+							"description": "Promotion UUID"
+						}
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:8000"
+		}
+	]
+}
