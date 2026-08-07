@@ -1,8 +1,7 @@
 from django.urls import path
-from .views import LatestPromotionsView, DatePromotionsView, PromotionDetailView
+from .views import PromotionsListView, PromotionDetailView
 
 urlpatterns = [
-    path('latest', LatestPromotionsView.as_view(), name='latest-promotions'),
-    path('', DatePromotionsView.as_view(), name='date-promotions'),
+    path('', PromotionsListView.as_view(), name='promotions-list'),
     path('<uuid:promotion_id>', PromotionDetailView.as_view(), name='promotion-detail'),
 ]

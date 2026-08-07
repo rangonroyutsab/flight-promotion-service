@@ -1,8 +1,16 @@
+from typing import List, Literal, Optional
 from pydantic import BaseModel
-from typing import List, Dict, Any
+
+
+class ManifestItem(BaseModel):
+    promotion_id: str
+    canonical_key: Optional[str] = None
+    status: str
+    error: Optional[str] = None
+
 
 class RunManifest(BaseModel):
-    schema_version: str
+    schema_version: Literal["1.0"] = "1.0"
     date: str
     timezone: str
     status: str
@@ -11,4 +19,4 @@ class RunManifest(BaseModel):
     selected_count: int
     succeeded_count: int
     failed_count: int
-    items: List[Dict[str, Any]]
+    items: List[ManifestItem]

@@ -3,7 +3,8 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "django-insecure-default-key")
+# Fail fast if DJANGO_SECRET_KEY is not set — never silently use an insecure default
+SECRET_KEY = os.environ["DJANGO_SECRET_KEY"]
 DEBUG = os.environ.get("DEBUG", "True").lower() == "true"
 ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "*").split(",")
 
@@ -107,4 +108,6 @@ AI_API_KEY = os.environ.get('AI_API_KEY', '')
 GEMINI_API_URL = os.environ.get('GEMINI_API_URL', '')
 DEFAULT_TIMEOUT_SECONDS = int(os.environ.get('DEFAULT_TIMEOUT_SECONDS', 10))
 AI_MAX_RETRIES = int(os.environ.get('AI_MAX_RETRIES', 3))
+# Centralized retry limit used by all external clients (MinIO, Elasticsearch, Gemini)
+DEFAULT_MAX_RETRIES = int(os.environ.get('DEFAULT_MAX_RETRIES', 3))
 

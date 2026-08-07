@@ -45,10 +45,10 @@ services:
     networks:
       - backend_network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test: ["CMD", "mc", "ready", "local"]
       interval: 30s
-      timeout: 20s
-      retries: 3
+      timeout: 10s
+      retries: 5
 
   web:
     build:
@@ -67,6 +67,8 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -74,10 +76,8 @@ services:
       retries: 3
 
   migrate:
-    build:
-      context: .
     image: flight_promotion_service:latest
-    command: ["python", "manage.py", "migrate"]
+    command: ["sh", "-c", "python manage.py makemigrations && python manage.py migrate"]
     env_file: .env
     networks:
       - backend_network
@@ -86,14 +86,16 @@ services:
         condition: service_healthy
 
   scheduler:
-    build:
-      context: .
     image: flight_promotion_service:latest
-    command: ["/app/docker/scheduler/entrypoint.sh"]
+    command: ["python", "manage.py", "run_scheduler"]
     env_file: .env
     networks:
       - backend_network
+    healthcheck:
+      disable: true
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       elasticsearch:

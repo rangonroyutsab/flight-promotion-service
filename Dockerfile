@@ -5,8 +5,9 @@ WORKDIR /app
 
 # Install build dependencies
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends gcc libpq-dev && \
+    apt-get install -y --no-install-recommends gcc && \
     rm -rf /var/lib/apt/lists/*
+
 
 COPY requirements.txt .
 RUN pip wheel --no-cache-dir --no-deps --wheel-dir /app/wheels -r requirements.txt
@@ -17,10 +18,11 @@ FROM python:3.12-slim AS runtime
 # Create non-root user
 RUN groupadd -r django && useradd -r -g django django
 
-# Install runtime dependencies (e.g., libpq for psycopg2 if not using binary, though binary is used, it's good practice)
+# Install runtime dependencies
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends libpq5 curl cron && \
+    apt-get install -y --no-install-recommends curl && \
     rm -rf /var/lib/apt/lists/*
+
 
 WORKDIR /app
 
@@ -32,14 +34,16 @@ RUN pip install --no-cache /wheels/* && rm -rf /wheels
 # Copy application source
 COPY --chown=django:django . .
 
-# Set permissions for cron if used, though scheduler will run separately
-RUN chmod +x /app/docker/scheduler/entrypoint.sh
+# Set permissions for scheduler entrypoint
+RUN chmod +x /app/docker/scheduler/entrypoint.sh 2>/dev/null || true
+
 
 USER django
 
 # Healthcheck for web container
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:8000/ || exit 1
+    CMD curl -f http://localhost:8000/health || exit 1
+
 
 EXPOSE 8000
 
