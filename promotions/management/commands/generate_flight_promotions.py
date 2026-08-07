@@ -12,10 +12,11 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        if options['scheduled']:
-            self.stdout.write("Starting scheduled generation pipeline...")
-            pipeline = GenerationPipeline()
-            pipeline.run_scheduled()
-            self.stdout.write(self.style.SUCCESS('Successfully finished scheduled generation.'))
-        else:
-            self.stdout.write("Please run with --scheduled flag for now.")
+        is_scheduled = options['scheduled']
+        mode = "SCHEDULED" if is_scheduled else "MANUAL"
+        self.stdout.write(f"Starting {mode} generation pipeline...")
+        
+        pipeline = GenerationPipeline()
+        pipeline.run(is_scheduled=is_scheduled)
+        
+        self.stdout.write(self.style.SUCCESS(f'Successfully finished {mode} generation.'))
