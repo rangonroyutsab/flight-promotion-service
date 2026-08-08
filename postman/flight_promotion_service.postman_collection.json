@@ -68,33 +68,6 @@
 				}
 			},
 			"response": []
-		},
-		{
-			"name": "Get Promotion Detail",
-			"request": {
-				"method": "GET",
-				"header": [],
-				"url": {
-					"raw": "{{baseUrl}}/api/v1/promotions/:id",
-					"host": [
-						"{{baseUrl}}"
-					],
-					"path": [
-						"api",
-						"v1",
-						"promotions",
-						":id"
-					],
-					"variable": [
-						{
-							"key": "id",
-							"value": "0b5172a2-df37-516c-b5ed-ca6165ea2f4e",
-							"description": "Promotion UUID"
-						}
-					]
-				}
-			},
-			"response": []
 		}
 	],
 	"variable": [

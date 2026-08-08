@@ -1,16 +1,17 @@
 import logging
 import uuid
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
-from typing import List, Dict, Any
 
 from django.conf import settings
 
-from promotions.clients.elasticsearch_client import ElasticsearchClient
-from promotions.clients.ai.gemini import GeminiProvider
-from promotions.services.prompt_builder import PromptBuilder
-from promotions.services.manifest_service import ManifestService
-from promotions.services.promotion_storage import PromotionStorageService
+from apps.promotions.clients.ai.gemini import GeminiProvider
+from apps.promotions.clients.elasticsearch_client import ElasticsearchClient
+from apps.promotions.schemas.promotion_input import PromotionInputItem
+from apps.promotions.schemas.promotion_object import PromotionObject
+from apps.promotions.services.manifest_service import ManifestService
+from apps.promotions.services.promotion_storage import PromotionStorageService
+from apps.promotions.services.prompt_builder import PromptBuilder
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +31,9 @@ class GenerationPipeline:
 
         effective_start = start_of_day if is_scheduled else max(now_local, start_of_day)
 
-        start_utc = effective_start.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        start_utc = effective_start.astimezone(timezone.utc).strftime(
+            "%Y-%m-%dT%H:%M:%SZ"
+        )
         end_utc = end_of_day.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
         return start_utc, end_utc
@@ -39,13 +42,15 @@ class GenerationPipeline:
         now_local = datetime.now(self.tz)
         local_date = now_local.strftime("%Y-%m-%d")
 
-        logger.info("GenerationPipeline starting for date: %s (scheduled=%s)", local_date, is_scheduled)
+        logger.info(
+            "GenerationPipeline starting for date: %s (scheduled=%s)",
+            local_date,
+            is_scheduled,
+        )
 
         start_utc, end_utc = self.get_time_boundaries(now_local, is_scheduled)
 
-        processing_results = []
         existing_manifest = self.manifest_svc.get_manifest(local_date)
-
         if existing_manifest:
             logger.info("Run for %s already exists. Skipping.", local_date)
             return
@@ -53,43 +58,56 @@ class GenerationPipeline:
         flights = self.es.search_flights(start_utc, end_utc)
         logger.info("Found %d eligible flights for %s.", len(flights), local_date)
 
+        input_items: list[PromotionInputItem] = []
+        promotion_objects: list[PromotionObject] = []
+        processing_results = []
+
         for flight_hit in flights:
             flight = flight_hit["_source"]
             flight_id = flight_hit["_id"]
 
-            promo_uuid = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{local_date}:{flight_id}"))
+            promo_uuid = str(
+                uuid.uuid5(uuid.NAMESPACE_DNS, f"{local_date}:{flight_id}")
+            )
             prompt_text = PromptBuilder.build_flight_prompt(flight)
+
+            input_item = PromotionInputItem(
+                promotion_id=promo_uuid,
+                flight_id=str(flight_id),
+                prompt_text=prompt_text,
+                flight=flight,
+            )
+            input_items.append(input_item)
 
             try:
                 ai_res = self.ai.generate_promotion(prompt_text)
-                canonical_key = self.storage.save_promotion(
-                    promo_uuid=promo_uuid,
-                    local_date=local_date,
-                    prompt_text=prompt_text,
-                    ai_response=ai_res,
-                    flight_data=flight
+                promo_obj = PromotionObject(
+                    promotion_id=promo_uuid, title=ai_res.title, content=ai_res.content
                 )
-
-                processing_results.append({
-                    "promotion_id": promo_uuid,
-                    "canonical_key": canonical_key,
-                    "status": "success"
-                })
+                promotion_objects.append(promo_obj)
+                processing_results.append(
+                    {"promotion_id": promo_uuid, "status": "success"}
+                )
                 logger.info("Promotion %s generated successfully.", promo_uuid)
             except Exception as e:
-                logger.exception("Failed to generate promotion for flight %s: %s", flight_id, e)
-                processing_results.append({
-                    "promotion_id": promo_uuid,
-                    "canonical_key": None,
-                    "status": "failed",
-                    "error": str(e)
-                })
+                logger.exception(
+                    "Failed to generate promotion for flight %s.", flight_id
+                )
+
+                processing_results.append(
+                    {"promotion_id": promo_uuid, "status": "failed", "error": str(e)}
+                )
+
+        input_key = self.storage.save_inputs(local_date, input_items)
+        output_key = self.storage.save_outputs(local_date, promotion_objects)
 
         self.manifest_svc.publish_run(
             run_date=local_date,
             started_at=now_local,
             finished_at=datetime.now(self.tz),
-            processing_results=processing_results
+            processing_results=processing_results,
+            input_key=input_key,
+            output_key=output_key,
         )
         logger.info(
             "GenerationPipeline finished for %s: %d succeeded, %d failed.",

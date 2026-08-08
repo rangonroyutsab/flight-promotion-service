@@ -7,6 +7,10 @@ services:
     environment:
       - DEBUG=true
 
+  scheduler:
+    volumes:
+      - .:/app
+
   kibana:
     ports:
       - "5601:5601"

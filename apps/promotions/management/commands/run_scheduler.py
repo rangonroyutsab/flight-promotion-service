@@ -5,13 +5,14 @@ This replaces the old cron-based scheduler (docker/scheduler/crontab).
 APScheduler runs in-process, inherits all Django settings and environment
 variables natively, and does not require root privileges.
 """
+
 import logging
 
+from apscheduler.schedulers.blocking import BlockingScheduler
+from apscheduler.triggers.cron import CronTrigger
 from django.conf import settings
 from django.core.management import call_command
 from django.core.management.base import BaseCommand
-from apscheduler.schedulers.blocking import BlockingScheduler
-from apscheduler.triggers.cron import CronTrigger
 
 logger = logging.getLogger(__name__)
 

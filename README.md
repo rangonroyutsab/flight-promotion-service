@@ -12,10 +12,9 @@ It does this through a fully automated pipeline:
 
 1. **Elasticsearch** — Queries the `kibana_sample_data_flights` index for non-cancelled, non-delayed flights to the US with an average ticket price above $500.
 2. **Gemini AI** — Each flight's data is formatted into a strict prompt and sent to the Gemini API, which returns a structured JSON promotional title + content.
-3. **MinIO (S3-compatible storage)** — The generated promotion objects and a daily run manifest are stored as JSON files.
-4. **PostgreSQL** — Stores a `PromotionPrompt` audit record for each generated promotion, linking the promotion UUID to its MinIO object key.
-5. **REST API** — A Django REST Framework API exposes the promotions for consumption.
-6. **APScheduler** — A dedicated Django management command runs the pipeline automatically every midnight.
+3. **MinIO (S3-compatible storage)** — Stores generated flight promotions (`outputs/{date}/{date}.json`) and generation inputs (`inputs/{date}/{date}.json`) as single JSON files per date, along with run manifests.
+4. **REST API** — A Django REST Framework API exposes the promotions for consumption.
+5. **APScheduler** — A dedicated Django management command runs the pipeline automatically every midnight.
 
 ---
 
@@ -24,7 +23,6 @@ It does this through a fully automated pipeline:
 | Component | Technology |
 |---|---|
 | API Framework | Django 5.1 + Django REST Framework |
-| Database | PostgreSQL 16 |
 | Object Storage | MinIO (S3-compatible) |
 | Search / Data Source | Elasticsearch 8.15 |
 | AI Provider | Google Gemini (via REST API) |
@@ -41,15 +39,16 @@ It does this through a fully automated pipeline:
 
 ```
 flight-promotion-service/
+├── apps/               # Applications directory
+│   └── promotions/     # Core flight promotion domain application
+│       ├── api/        # HTTP layer (endpoints and responses)
+│       ├── clients/    # External service adapters (Elasticsearch, MinIO, Gemini)
+│       ├── management/ # CLI commands (manual generation, scheduler)
+│       ├── schemas/    # Pydantic models for data validation
+│       └── services/   # Business logic (pipeline orchestration, prompt building)
 ├── config/             # Django project configuration (settings, root URLs)
-├── promotions/         # Core application containing all business logic
-│   ├── api/            # HTTP layer (endpoints and responses)
-│   ├── clients/        # External service adapters (Elasticsearch, MinIO, Gemini)
-│   ├── management/     # CLI commands (manual generation, scheduler)
-│   ├── schemas/        # Pydantic models for data validation
-│   └── services/       # Core business logic (pipeline orchestration, prompt building)
 ├── docker/             # Initialization scripts for MinIO and Elasticsearch
-├── docker-compose.yml  # Orchestrates all services (Postgres, ES, MinIO, API, Scheduler)
+├── docker-compose.yml  # Orchestrates all services (ES, MinIO, API, Scheduler)
 └── manage.py           # Django CLI entrypoint
 ```
 
@@ -58,14 +57,18 @@ flight-promotion-service/
 ```
 Elasticsearch (Flight Data) ──► Generation Pipeline (Gemini AI)
                                       │
-               ┌──────────────────────┴──────────────────────┐
-               ▼                                             ▼
-         MinIO (JSON)                                PostgreSQL (Audit)
-  (Promotions & Manifests)                         (PromotionPrompt Logs)
-               │
-               ▼
-          REST API
-   GET /api/v1/promotions/
+                                      ▼
+                                MinIO Bucket
+                       (flight-promotions/)
+                    ┌─────────────────┴─────────────────┐
+                    ▼                                   ▼
+             outputs/{date}/                     inputs/{date}/
+             {date}.json                         {date}.json
+             (All 5 Promotion Contents)          (Prompts & Flight Inputs)
+                    │
+                    ▼
+               REST API
+        GET /api/v1/promotions/
 ```
 
 ---
@@ -84,7 +87,7 @@ Elasticsearch (Flight Data) ──► Generation Pipeline (Gemini AI)
    ```
    Add your API keys to `.env` (or leave `AI_PROVIDER=mock` for testing).
 
-2. **Start all services:**
+3. **Start all services:**
    ```bash
    docker-compose up --build -d
    ```
@@ -98,8 +101,7 @@ Base URL: `http://localhost:8000/api/v1/promotions/`
 | Endpoint | Method | Description |
 |---|---|---|
 | `/health` | GET | Liveness check (returns 200 OK). |
-| `/` | GET | Returns the latest generated promotions. Accepts optional `?date=YYYY-MM-DD`. |
-| `/{id}` | GET | Returns full details of a specific promotion. |
+| `/` | GET | Returns the latest generated promotions list. Accepts optional `?date=YYYY-MM-DD`. |
 
 ---
 
@@ -120,36 +122,32 @@ curl http://localhost:8000/api/v1/promotions/
 
 # Promotions for a specific date
 curl "http://localhost:8000/api/v1/promotions/?date=2026-08-07"
-
-# Promotion detail
-curl "http://localhost:8000/api/v1/promotions/<promotion-uuid>"
 ```
 
-Run Django system checks:
+Run Django system checks and tests:
 ```bash
 docker-compose exec web python manage.py check
+docker-compose exec web python manage.py test apps.promotions
 ```
 
 ---
 
 ## Key Design Decisions
 
-### 1. APScheduler over system cron
+### 1. Single JSON File per Date in MinIO
+All 5 generated flight promotion contents for a given date are stored together in a single JSON file at `outputs/{date}/{date}.json`. Similarly, all prompt inputs and raw flight details are stored in `inputs/{date}/{date}.json`. This simplifies MinIO object management and enables single-request retrieval.
+
+### 2. Elimination of Relational Database Prompts
+Prompts and generation inputs are preserved in MinIO object storage (`inputs/{date}/{date}.json`) rather than PostgreSQL columns, keeping external database dependencies minimal and audit records co-located with output assets.
+
+### 3. APScheduler over system cron
 The scheduler runs as a standard Django management command (`run_scheduler`) using APScheduler's `BlockingScheduler`. This means:
 - No cron daemon or root privileges required
 - Full access to Django settings and environment variables natively
 - Scheduler timezone is controlled by `settings.TIME_ZONE`
 
-### 2. MinIO as the promotion store (not Postgres)
-Generated promotion content and manifests are stored as JSON objects in MinIO rather than Postgres columns. This keeps the relational DB lean (it only holds audit/audit-pointer records) and allows large promotion payloads to be fetched concurrently without DB query pressure.
-
-### 3. Idempotent daily runs
-The pipeline checks for an existing manifest before generating. If today's manifest already exists in MinIO, the run exits immediately with a log message. Promotion UUIDs are derived deterministically via `uuid5(date:flight_id)`, so re-running on the same day produces identical IDs and `update_or_create` prevents Postgres duplicates.
-
-
-### 4. Concurrent MinIO reads
-When listing promotions, the service fetches individual promotion JSON objects from MinIO concurrently using `ThreadPoolExecutor` (max 5 workers — matching the ES result limit). This prevents sequential latency from degrading the list API response time.
+### 4. Idempotent daily runs
+The pipeline checks for existing output/manifest before generating. If today's run already exists in MinIO, the generation step exits gracefully.
 
 ### 5. Centralised retry configuration
-All external clients (MinIO, Elasticsearch, Gemini) use `settings.DEFAULT_MAX_RETRIES` for their tenacity retry count. The Gemini client applies the retry decorator lazily (as an inner function) to avoid reading settings at class-definition/import time — a subtle Django app registry coupling issue.
-
+All external clients (MinIO, Elasticsearch, Gemini) use `settings.DEFAULT_MAX_RETRIES` for their tenacity retry count.

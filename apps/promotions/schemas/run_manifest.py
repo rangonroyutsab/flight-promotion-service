@@ -1,12 +1,13 @@
-from typing import List, Literal, Optional
+from typing import Literal
+
 from pydantic import BaseModel
 
 
 class ManifestItem(BaseModel):
     promotion_id: str
-    canonical_key: Optional[str] = None
+    canonical_key: str | None = None
     status: str
-    error: Optional[str] = None
+    error: str | None = None
 
 
 class RunManifest(BaseModel):
@@ -19,4 +20,6 @@ class RunManifest(BaseModel):
     selected_count: int
     succeeded_count: int
     failed_count: int
-    items: List[ManifestItem]
+    output_key: str | None = None
+    input_key: str | None = None
+    items: list[ManifestItem]
